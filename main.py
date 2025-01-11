@@ -3,14 +3,27 @@ import requests  # Utilisé pour HTTP 1.1 et 2.0
 import httpx  # Nécessaire pour HTTP 2.0
 import aiohttp  # Pour le client HTTP 3.0
 import asyncio
-
+from bs4 import BeautifulSoup
 import urllib3
-
 from core import CoreManager
 
 
 # Utiliser pour supprimer les avertissements suite à la desactivation du SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+# Extraction de tout les liens d'une page
+def get_all_links(url):
+    try:
+        response = requests.get(url, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        links = [a['href'] for a in soup.find_all('a', href=True)]
+        # Filtrer pour les URLs absolues et éviter les répétitions
+        links = list(set([link if link.startswith('http') else url + link for link in links]))
+        return links
+    except Exception as e:
+        print(f"Erreur lors de l'extraction des liens : {e}")
+        return []
 
 
 # Fonction pour mesurer le temps de téléchargement avec HTTP 1.1
@@ -60,25 +73,47 @@ async def download_http30(url):
 
     return elapsed_time
 
+async def measure_http30_performance(links):
+    tasks = [download_http30(link) for link in links]
+    return await asyncio.gather(*tasks)
+
+# Fonction principale pour mesurer les performances pour toutes les pages
+def measure_performance(url):
+    links = get_all_links(url)
+    if not links:
+        print("Aucun lien trouvé.")
+        return
+
+    print("\n--- Test avec HTTP 1.1 ---")
+    total_time_http1 = sum(download_http11(link) for link in links)
+
+    print("\n--- Test avec HTTP 2.0 ---")
+    total_time_http2 = sum(download_http20(link) for link in links)
+
+    print("\n--- Test avec HTTP 3.0 ---")
+    try:
+        total_time_http3_list = asyncio.run(measure_http30_performance(links))
+        total_time_http3 = sum(total_time_http3_list)
+    except Exception as e:
+        print(f"Erreur avec HTTP 3.0 : {e}")
+        total_time_http3 = float('inf')
+
+    # Résultats globaux
+    print("\nRésultats globaux :")
+    print(f"Temps total avec HTTP 1.1 : {total_time_http1:.2f} secondes")
+    print(f"Temps total avec HTTP 2.0 : {total_time_http2:.2f} secondes")
+    print(f"Temps total avec HTTP 3.0 : {total_time_http3:.2f} secondes")
+
+    return [total_time_http1, total_time_http2, total_time_http3]
 
 if __name__ == "__main__":
 
     url = "https://www.djamo.com/ci/"
+    timers = measure_performance(url)
+
+    print(timers)
 
     protocols = ["HTTP 1.1", "HTTP 2.0", "HTTP 3.0"]
 
-
-    print("\n--- Test avec HTTP 1.1 ---")
-    time_http_1 = download_http11(url)
-
-    print("\n--- Test avec HTTP 2.0 ---")
-    time_http_2 = download_http20(url)
-
-    print("\n--- Test avec HTTP 3.0 ---")
-    time_http_3 = asyncio.run(download_http30(url))
-
-    # Stock des différents temps écoulé pour la construction du graph
-    times = [time_http_1, time_http_2, time_http_3]
-
-    graph = CoreManager(protocols,times)
+    graph = CoreManager(protocols,timers)
     graph.traceGraph()
