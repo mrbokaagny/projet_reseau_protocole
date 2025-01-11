@@ -35,7 +35,7 @@ class CoreManager:
         # Création des barres
         ax.bar(self.protocols, self.times, color=colors, width=0.6)
 
-        # Ajouter des annotations
+        # Ajout des annotations
         for i, time in enumerate(self.times):
             ax.text(i, time + 0.02, f"{time:.2f} s", ha='center', fontsize=10)
 
