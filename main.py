@@ -41,6 +41,7 @@ def download_http11(url):
 
 # Fonction pour mesurer le temps de téléchargement avec HTTP 2.0
 def download_http20(url):
+    elapsed_time = 0
     with httpx.Client(http2=True, verify=False) as client:
         start_time = time.time()
         try:
@@ -61,6 +62,7 @@ def download_http20(url):
 # Fonction pour mesurer le temps de téléchargement avec HTTP 3.0
 async def download_http30(url):
     start_time = time.time()
+    elapsed_time = 0
 
     async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
         try:
@@ -111,9 +113,7 @@ if __name__ == "__main__":
     url = "https://www.djamo.com/ci/"
     timers = measure_performance(url)
 
-    print(timers)
-
     protocols = ["HTTP 1.1", "HTTP 2.0", "HTTP 3.0"]
 
     graph = CoreManager(protocols,timers)
-    graph.traceGraph()
+    #graph.traceGraph()
